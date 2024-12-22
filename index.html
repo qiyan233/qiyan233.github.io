@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>数据分类管理工具（增强版）</title>
+  <!-- 若需离线，请下载 jszip.min.js 至同目录，并改为 <script src="./jszip.min.js"></script> -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip/dist/jszip.min.js"></script>
+  <style>
+    /* ========== 全局 & 布局 ========== */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Microsoft YaHei", Arial, sans-serif;
+      background-color: #f5f6fa;
+      display: flex; 
+      flex-direction: column; 
+      align-items: center;
+      min-height: 100vh;
+    }
+    h1, h2, h3, p { margin: 0; padding: 0; }
+
+    .container {
+      width: 95%;
+      max-width: 1200px;
+      background: #fff;
+      margin: 20px 0;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      padding: 20px;
+    }
+    .section { margin-bottom: 20px; }
+
+    .container h1 { 
+      text-align: center; 
+      margin-bottom: 20px; 
+      color: #333; 
+    }
+    .section h3 {
+      margin-bottom: 10px;
+      color: #666;
+    }
+
+    /* ========== 拖拽 & 文本框 ========== */
+    .drag-area {
+      border: 2px dashed #ccc;
+      border-radius: 6px;
+      text-align: center;
+      padding: 20px;
+      margin-bottom: 10px;
+      color: #999;
+      transition: 0.3s;
+    }
+    .drag-area.dragover {
+      border-color: #00aaff;
+      background: #eef9ff;
+      color: #333;
+    }
+    textarea {
+      width: 100%;
+      height: 150px;
+      padding: 10px;
+      font-size: 14px;
+      font-family: Consolas, monospace;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      resize: vertical;
+      margin-bottom: 10px;
+    }
+
+    /* ========== 按钮 ========== */
+    .btn {
+      display: inline-block;
+      padding: 8px 16px;
+      margin: 5px 0;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.3s;
+      color: #fff;
+    }
+    .btn-primary {
+      background-color: #00aaff;
+    }
+    .btn-primary:hover {
+      background-color: #008ace;
+    }
+    .bulk-export {
+      background: #ff9800;
+      margin-right: 10px;
+    }
+    .bulk-export:hover {
+      background: #e68a00;
+    }
+    .btn-export {
+      background: #00c09d;
+    }
+    .btn-export:hover {
+      background: #00a685;
+    }
+    input[type="file"] {
+      margin-left: 10px;
+      cursor: pointer;
+    }
+
+    /* ========== 实时预览 ========== */
+    .preview-container {
+      border: 1px solid #eee;
+      background: #fafafa;
+      padding: 10px;
+      border-radius: 4px;
+      margin-bottom: 10px;
+    }
+    .preview-container p {
+      color: #666;
+      margin-bottom: 5px;
+    }
+    .preview-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+    }
+    .preview-table th, .preview-table td {
+      border: 1px solid #ddd;
+      padding: 6px;
+      font-size: 12px;
+      color: #333;
+    }
+    .preview-table th {
+      background-color: #f0f0f0;
+    }
+
+    /* ========== 全部列表(勾选) ========== */
+    .all-data-section h3 {
+      margin-bottom: 10px;
+      color: #444;
+    }
+    .all-data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 10px;
+      background: #fff;
+    }
+    .all-data-table th, .all-data-table td {
+      border: 1px solid #ddd;
+      padding: 6px;
+      font-size: 12px;
+      color: #333;
+      text-align: left;
+    }
+    .all-data-table th {
+      background-color: #f7f7f7;
+    }
+    .checkbox-col {
+      text-align: center;
+    }
+
+    /* ========== 分类 & 搜索 ========== */
+    .results-section {
+      margin-top: 20px;
+    }
+    .search-bar {
+      margin-bottom: 10px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .search-bar label {
+      color: #666;
+      font-size: 14px;
+    }
+    .search-bar input {
+      flex: 1;
+      padding: 6px;
+      font-size: 14px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .results-container {
+      padding: 10px;
+      background: #f8f8f8;
+      border: 1px solid #eee;
+      border-radius: 4px;
+      min-height: 30px;
+    }
+    .category-block {
+      margin-top: 20px;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 10px 15px;
+    }
+    .category-block h2 {
+      font-size: 16px;
+      background: #f7f7f7;
+      padding: 6px;
+      margin: 0 0 10px;
+      border-radius: 4px;
+      color: #333;
+      border: 1px solid #eee;
+    }
+    .export-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    /* ========== 响应式 ========== */
+    @media screen and (max-width: 600px) {
+      .btn, .export-buttons button {
+        width: 100%;
+      }
+      .search-bar {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      input[type="file"] {
+        margin: 5px 0 0;
+      }
+      .bulk-export {
+        margin: 5px 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>数据分类管理工具（增强版）</h1>
+
+    <!-- 步骤1：输入/上传/拖拽 -->
+    <div class="section">
+      <h3>步骤1：导入数据</h3>
+      <!-- 拖拽区域 -->
+      <div id="dragArea" class="drag-area">
+        将 TXT 文件拖拽到此处，或点击下方“选择文件”按钮
+      </div>
+      <!-- 文本输入框 -->
+      <textarea id="dataInput" placeholder="或在此粘贴您的原始数据..."></textarea>
+      <div>
+        <button class="btn btn-primary" onclick="parsePreview()">实时预览</button>
+        <input type="file" id="fileInput" accept=".txt" onchange="handleFileSelect(event)">
+      </div>
+    </div>
+
+    <!-- 实时预览 -->
+    <div class="section preview-container" id="previewSection" style="display:none;">
+      <p>以下为实时预览（仅展示前3条部分字段）：</p>
+      <table class="preview-table" id="previewTable"></table>
+    </div>
+
+    <!-- 全部数据列表(可勾选) -->
+    <div class="section all-data-section" id="allDataSection" style="display:none;">
+      <h3>全部数据列表（可勾选导出）</h3>
+      <table class="all-data-table" id="allDataTable"></table>
+
+      <!-- 导出选中行的按钮 -->
+      <div>
+        <button class="btn btn-export" onclick="exportSelectedWithLabels()">导出选中(带中文标注 TXT)</button>
+        <button class="btn btn-export" onclick="exportSelectedWithoutLabels()">导出选中(不带中文标注 TXT)</button>
+        <button class="btn btn-export" onclick="exportSelectedHTML()">导出选中(HTML)</button>
+        <button class="btn bulk-export" onclick="exportSelectedZip()">打包导出选中(ZIP)</button>
+      </div>
+    </div>
+
+    <!-- 解析 & 分类结果 -->
+    <div class="section results-section">
+      <h3>步骤2：解析并分类</h3>
+      <button class="btn btn-primary" onclick="processData()">解析并分类数据</button>
+      
+      <!-- 搜索栏 -->
+      <div class="search-bar" style="display:none;" id="searchBar">
+        <label>搜索角色名称：</label>
+        <input type="text" id="searchInput" placeholder="输入关键字...">
+      </div>
+      
+      <!-- 分类结果展示 -->
+      <div class="results-container" id="results"></div>
+    </div>
+  </div>
+
+  <!-- JS脚本区域 -->
+  <script>
+    /* =======================
+       1. 拖拽文件区
+    ======================= */
+    const dragArea = document.getElementById('dragArea');
+    dragArea.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dragArea.classList.add('dragover');
+    });
+    dragArea.addEventListener('dragleave', () => {
+      dragArea.classList.remove('dragover');
+    });
+    dragArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dragArea.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) { readFile(file); }
+    });
+
+    /* =======================
+       2. 文件选择事件
+    ======================= */
+    function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (file) { readFile(file); }
+    }
+
+    function readFile(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        document.getElementById('dataInput').value = e.target.result;
+      };
+      reader.readAsText(file, 'UTF-8');
+    }
+
+    /* =======================
+       3. 实时预览 (仅展示前3条)
+    ======================= */
+    function parsePreview() {
+      const rawData = document.getElementById('dataInput').value.trim();
+      if (!rawData) {
+        alert('请先粘贴数据或选择文件');
+        return;
+      }
+      // 分割：按“角色名称：”分割
+      const rawRecords = rawData.split(/角色名称：/).filter(r => r.trim());
+      // 只取前3条，并提取关键字段
+      const previewList = [];
+      for (let i = 0; i < rawRecords.length; i++) {
+        if (previewList.length >= 3) break;
+        const rec = rawRecords[i];
+        const nameMatch = rec.match(/(.+?)\s*\|/);
+        const name = nameMatch ? nameMatch[1].trim() : "";
+        const levelMatch = rec.match(/游戏等级：([^|]+)/);
+        const level = levelMatch ? levelMatch[1].trim() : "";
+        const warehouseMatch = rec.match(/仓库价值：([^|]+)/);
+        const warehouse = warehouseMatch ? warehouseMatch[1].trim() : "";
+        previewList.push({
+          角色名称: name,
+          游戏等级: level,
+          仓库价值: warehouse
+        });
+      }
+      renderPreviewTable(previewList);
+    }
+
+    function renderPreviewTable(data) {
+      const previewTable = document.getElementById('previewTable');
+      previewTable.innerHTML = '';
+      if (!data || data.length === 0) {
+        document.getElementById('previewSection').style.display = 'none';
+        alert('未能解析到可预览的数据');
+        return;
+      }
+      document.getElementById('previewSection').style.display = 'block';
+
+      // 表头
+      const header = document.createElement('tr');
+      ['角色名称','游戏等级','仓库价值'].forEach(h => {
+        const th = document.createElement('th');
+        th.textContent = h;
+        header.appendChild(th);
+      });
+      previewTable.appendChild(header);
+
+      // 数据行
+      data.forEach(item => {
+        const tr = document.createElement('tr');
+        Object.values(item).forEach(val => {
+          const td = document.createElement('td');
+          td.textContent = val;
+          tr.appendChild(td);
+        });
+        previewTable.appendChild(tr);
+      });
+    }
+
+    /* =======================
+       4. 解析主逻辑 & 全局数据
+    ======================= */
+    let globalData = [];       // 所有解析到的记录(含等级=0)
+    let filteredData = [];     // 去除等级=0，用于分类
+    let categoriesData = [];   // 按分类后的数据
+
+    function processData() {
+      const rawData = document.getElementById('dataInput').value.trim();
+      if (!rawData) {
+        alert('请输入或上传数据后再试。');
+        return;
+      }
+      // 分割：按“角色名称：”来切分
+      const rawRecords = rawData.split(/角色名称：/).filter(r => r.trim());
+
+      // 定义字段
+      const fields = [
+        "账号大区", "角色名称", "角色编号", "游戏等级", "哈夫币",
+        "道具价值", "仓库价值", "在线", "今日登录", "特定模式等级",
+        "禁言", "封号", "最后登录时间", "最后登出时间"
+      ];
+
+      const parsed = rawRecords.map(rec => parseOneRecord(rec, fields));
+      globalData = parsed; // 包含了等级=0的
+
+      // 过滤：等级 != 0
+      filteredData = parsed.filter(x => x.游戏等级 !== 0);
+
+      // 渲染“全部数据列表(可勾选)”
+      renderAllDataTable(parsed);
+
+      // 分类
+      categoriesData = doClassification(filteredData);
+      renderCategories(categoriesData);
+
+      // 如果分类后有数据，则显示搜索栏
+      const searchBar = document.getElementById('searchBar');
+      if (filteredData.length > 0) {
+        searchBar.style.display = 'flex';
+      } else {
+        searchBar.style.display = 'none';
+      }
+
+      alert(`解析完成，共${parsed.length}条记录；等级=0过滤掉${parsed.length - filteredData.length}条。`);
+    }
+
+    function parseOneRecord(rec, fields) {
+      const obj = {};
+      // 账号大区
+      let districtMatch = rec.match(/账号大区：([^|]+)/);
+      obj["账号大区"] = districtMatch ? districtMatch[1].trim() : "";
+
+      // 角色名称
+      let nameMatch = rec.match(/角色名称：([^|]+)/);
+      obj["角色名称"] = nameMatch ? nameMatch[1].trim() : "";
+
+      // 角色编号
+      let idMatch = rec.match(/角色编号：([^|]+)/);
+      obj["角色编号"] = idMatch ? idMatch[1].trim() : "";
+
+      // 游戏等级
+      let levelMatch = rec.match(/游戏等级：([^|]+)/);
+      let level = levelMatch ? parseInt(levelMatch[1].trim(), 10) : 0;
+      obj["游戏等级"] = isNaN(level) ? 0 : level;
+
+      // 哈夫币
+      let coinMatch = rec.match(/哈夫币：([^|]+)/);
+      obj["哈夫币"] = coinMatch ? coinMatch[1].trim() : "";
+
+      // 道具价值
+      let itemValMatch = rec.match(/道具价值：([^|]+)/);
+      obj["道具价值"] = itemValMatch ? itemValMatch[1].trim() : "";
+
+      // 仓库价值
+      let valMatch = rec.match(/仓库价值：([^|]+)/);
+      let valNum = 0;
+      if (valMatch) {
+        let valStr = valMatch[1].trim();
+        if (valStr.includes("M")) {
+          valStr = valStr.replace("M", "");
+        }
+        valNum = parseFloat(valStr) || 0;
+      }
+      obj["仓库价值"] = valNum;
+
+      // 在线
+      let onlineMatch = rec.match(/在线：([^|]+)/);
+      obj["在线"] = onlineMatch ? onlineMatch[1].trim() : "";
+
+      // 今日登录
+      let todayLoginMatch = rec.match(/今日登录：([^|]+)/);
+      obj["今日登录"] = todayLoginMatch ? todayLoginMatch[1].trim() : "";
+
+      // 特定模式等级
+      let modeLevelMatch = rec.match(/特定模式等级：([^|]+)/);
+      obj["特定模式等级"] = modeLevelMatch ? modeLevelMatch[1].trim() : "";
+
+      // 禁言
+      let banMatch = rec.match(/禁言：([^|]+)/);
+      obj["禁言"] = banMatch ? banMatch[1].trim() : "";
+
+      // 封号
+      let banAccountMatch = rec.match(/封号：([^|]+)/);
+      obj["封号"] = banAccountMatch ? banAccountMatch[1].trim() : "";
+
+      // 最后登录时间
+      let lastLoginMatch = rec.match(/最后登录时间：([^|]+)/);
+      obj["最后登录时间"] = lastLoginMatch ? lastLoginMatch[1].trim() : "";
+
+      // 最后登出时间
+      let lastLogoutMatch = rec.match(/最后登出时间：([^|]+)/);
+      obj["最后登出时间"] = lastLogoutMatch ? lastLogoutMatch[1].trim() : "";
+
+      // Access Token 部分
+      let tokenMatch = rec.match(/#access_token=([^}]+)/);
+      obj["access_token"] = tokenMatch ? `#access_token=${tokenMatch[1].trim()}` : "";
+
+      return obj;
+    }
+
+    /* =======================
+       5. 渲染全部数据(含0级) + 勾选
+    ======================= */
+    function renderAllDataTable(data) {
+      const section = document.getElementById('allDataSection');
+      const table = document.getElementById('allDataTable');
+      if (!data || data.length === 0) {
+        section.style.display = 'none';
+        return;
+      }
+      section.style.display = 'block';
+      table.innerHTML = '';
+
+      // 表头
+      const header = document.createElement('tr');
+      const thCheck = document.createElement('th');
+      thCheck.textContent = '选择';
+      thCheck.className = 'checkbox-col';
+      header.appendChild(thCheck);
+
+      Object.keys(data[0]).forEach(k => {
+        const th = document.createElement('th');
+        th.textContent = k;
+        header.appendChild(th);
+      });
+      table.appendChild(header);
+
+      // 数据行
+      data.forEach((item, idx) => {
+        const tr = document.createElement('tr');
+        // 复选框
+        const tdCheck = document.createElement('td');
+        tdCheck.className = 'checkbox-col';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = idx; // 记录下标
+        tdCheck.appendChild(cb);
+        tr.appendChild(tdCheck);
+
+        // 其余字段
+        Object.values(item).forEach(val => {
+          const td = document.createElement('td');
+          td.textContent = val;
+          tr.appendChild(td);
+        });
+        table.appendChild(tr);
+      });
+    }
+
+    /* =======================
+       6. 细分仓库价值 & 等级
+    ======================= */
+    function doClassification(data) {
+      // 等级规则
+      // > 30 => 30级以上
+      // 12-30 => 30级以下12级以上
+      // < 12 => 12级以下
+      function classifyLevel(lv) {
+        if (lv > 30) return "30级以上";
+        if (lv >= 12) return "30级以下12级以上";
+        return "12级以下";
+      }
+      // 仓库价值规则
+      // 0-5 / 5-10 / 10-15 / 15-20 / 20-25 / 25-30 / >=30
+      function classifyWarehouse(val) {
+        if (val < 5) return "仓库价值0-5M";
+        if (val < 10) return "仓库价值5-10M";
+        if (val < 15) return "仓库价值10-15M";
+        if (val < 20) return "仓库价值15-20M";
+        if (val < 25) return "仓库价值20-25M";
+        if (val < 30) return "仓库价值25-30M";
+        return "仓库价值30M以上";
+      }
+
+      // 给每条记录添加分类字段
+      data.forEach(item => {
+        const lvCat = classifyLevel(item["游戏等级"]);
+        const wvCat = classifyWarehouse(item["仓库价值"]);
+        item["类别"] = `${lvCat}_${wvCat}`;
+      });
+
+      return data;
+    }
+
+    /* =======================
+       7. 渲染分类结果 & 搜索
+    ======================= */
+    function renderCategories(data) {
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = '';
+
+      if (!data || data.length === 0) {
+        resultsDiv.innerHTML = '<p>没有可显示的数据（等级=0都被过滤？）</p>';
+        return;
+      }
+
+      // 找出所有类别
+      const cats = [...new Set(data.map(x => x["类别"]))];
+
+      // 批量导出(按分类)按钮
+      const bulkBtn = document.createElement('button');
+      bulkBtn.className = 'bulk-export btn';
+      bulkBtn.textContent = '批量打包导出分类(ZIP)';
+      bulkBtn.onclick = () => bulkExportZip(data, cats);
+      resultsDiv.appendChild(bulkBtn);
+
+      // 每个分类一个块
+      cats.forEach(cat => {
+        const catBlock = document.createElement('div');
+        catBlock.className = 'category-block';
+
+        const title = document.createElement('h2');
+        title.textContent = cat;
+        catBlock.appendChild(title);
+
+        const catData = data.filter(x => x["类别"] === cat);
+
+        // 导出按钮组
+        const btnContainer = document.createElement('div');
+        btnContainer.className = 'export-buttons';
+
+        // 带中文TXT
+        const btnWithTxt = document.createElement('button');
+        btnWithTxt.className = 'btn-export';
+        btnWithTxt.textContent = '带中文标注 TXT';
+        btnWithTxt.onclick = () => downloadWithLabels(catData, cat);
+        btnContainer.appendChild(btnWithTxt);
+
+        // 不带中文TXT
+        const btnWithoutTxt = document.createElement('button');
+        btnWithoutTxt.className = 'btn-export';
+        btnWithoutTxt.textContent = '不带中文标注 TXT';
+        btnWithoutTxt.onclick = () => downloadWithoutLabels(catData, cat);
+        btnContainer.appendChild(btnWithoutTxt);
+
+        // HTML
+        const btnHTML = document.createElement('button');
+        btnHTML.className = 'btn-export';
+        btnHTML.textContent = '导出 HTML';
+        btnHTML.onclick = () => downloadHTML(catData, cat);
+        btnContainer.appendChild(btnHTML);
+
+        catBlock.appendChild(btnContainer);
+        resultsDiv.appendChild(catBlock);
+      });
+    }
+
+    // 搜索栏事件
+    const searchInput = document.getElementById('searchInput');
+    searchInput.addEventListener('input', () => {
+      const kw = searchInput.value.trim();
+      const filtered = kw 
+        ? filteredData.filter(item => item["角色名称"].includes(kw))
+        : filteredData;
+      const categorized = doClassification(filtered);
+      renderCategories(categorized);
+    });
+
+    /* =======================
+       8. 勾选导出(带/不带中文、HTML、ZIP)
+    ======================= */
+    function exportSelectedWithLabels() {
+      const checkedIdx = getCheckedIndices();
+      if (checkedIdx.length === 0) {
+        alert('请先勾选至少一条记录');
+        return;
+      }
+      let txtContent = '';
+      const headers = Object.keys(globalData[0]).join(' | ');
+      txtContent += headers + '\n';
+      checkedIdx.forEach(idx => {
+        const item = globalData[idx];
+        txtContent += Object.values(item).join(' | ') + '\n';
+      });
+      triggerDownload(txtContent, `导出_带中文标注.txt`, 'text/plain');
+    }
+
+    function exportSelectedWithoutLabels() {
+      const checkedIdx = getCheckedIndices();
+      if (checkedIdx.length === 0) {
+        alert('请先勾选至少一条记录');
+        return;
+      }
+      let txtContent = '';
+      checkedIdx.forEach(idx => {
+        const item = globalData[idx];
+        if (item["access_token"]) {
+          txtContent += `${item["access_token"]}\n`;
+        }
+      });
+      triggerDownload(txtContent, `导出_不带中文标注.txt`, 'text/plain');
+    }
+
+    function exportSelectedHTML() {
+      const checkedIdx = getCheckedIndices();
+      if (checkedIdx.length === 0) {
+        alert('请先勾选至少一条记录');
+        return;
+      }
+      let htmlContent = `<h2>导出结果</h2>
+      <table border="1" cellpadding="5" cellspacing="0" style="border-collapse:collapse;">
+        <tr>`;
+      // 表头
+      Object.keys(globalData[0]).forEach(key => {
+        htmlContent += `<th>${key}</th>`;
+      });
+      htmlContent += `</tr>`;
+      // 数据行
+      checkedIdx.forEach(idx => {
+        const item = globalData[idx];
+        htmlContent += `<tr>`;
+        Object.values(item).forEach(val => {
+          htmlContent += `<td>${val}</td>`;
+        });
+        htmlContent += `</tr>`;
+      });
+      htmlContent += `</table>`;
+      triggerDownload(htmlContent, `导出.html`, 'text/html');
+    }
+
+    async function exportSelectedZip() {
+      const checkedIdx = getCheckedIndices();
+      if (checkedIdx.length === 0) {
+        alert('请先勾选至少一条记录');
+        return;
+      }
+      const zip = new JSZip();
+      // 带中文TXT
+      let txtWith = '';
+      const headers = Object.keys(globalData[0]).join(' | ');
+      txtWith += headers + '\n';
+      checkedIdx.forEach(idx => {
+        const item = globalData[idx];
+        txtWith += Object.values(item).join(' | ') + '\n';
+      });
+      zip.file(`导出_带中文标注.txt`, txtWith);
+
+      // 不带中文TXT
+      let txtWithout = '';
+      checkedIdx.forEach(idx => {
+        const item = globalData[idx];
+        if (item["access_token"]) {
+          txtWithout += `${item["access_token"]}\n`;
+        }
+      });
+      zip.file(`导出_不带中文标注.txt`, txtWithout);
+
+      // HTML
+      let htmlContent = `<h2>导出结果</h2>
+      <table border="1" cellpadding="5" cellspacing="0" style="border-collapse:collapse;">
+        <tr>`;
+      Object.keys(globalData[0]).forEach(key => {
+        htmlContent += `<th>${key}</th>`;
+      });
+      htmlContent += `</tr>`;
+      checkedIdx.forEach(idx => {
+        const item = globalData[idx];
+        htmlContent += `<tr>`;
+        Object.values(item).forEach(val => {
+          htmlContent += `<td>${val}</td>`;
+        });
+        htmlContent += `</tr>`;
+      });
+      htmlContent += `</table>`;
+      zip.file(`导出.html`, htmlContent);
+
+      // 生成 zip
+      const content = await zip.generateAsync({ type: 'blob' });
+      triggerDownload(content, `导出_${Date.now()}.zip`, 'application/zip');
+    }
+
+    function getCheckedIndices() {
+      const table = document.getElementById('allDataTable');
+      const checkboxes = table.querySelectorAll('input[type="checkbox"]:checked');
+      return Array.from(checkboxes).map(cb => parseInt(cb.value, 10));
+    }
+
+    /* =======================
+       9. 分类批量打包导出 ZIP
+    ======================= */
+    async function bulkExportZip(data, cats) {
+      if (!data || data.length === 0) return;
+      const zip = new JSZip();
+
+      // 以“类别”为目录
+      cats.forEach(cat => {
+        const catData = data.filter(x => x["类别"] === cat);
+        if (catData.length === 0) return;
+
+        // 带中文TXT
+        let txtWith = '';
+        const headers = Object.keys(catData[0]).join(' | ');
+        txtWith += headers + '\n';
+        catData.forEach(item => {
+          txtWith += Object.values(item).join(' | ') + '\n';
+        });
+        zip.file(`${cat}/${cat}_中文标注.txt`, txtWith);
+
+        // 不带中文TXT
+        let txtWithout = '';
+        catData.forEach(item => {
+          if (item["access_token"]) {
+            txtWithout += `${item["access_token"]}\n`;
+          }
+        });
+        zip.file(`${cat}/${cat}_不带中文标注.txt`, txtWithout);
+
+        // HTML
+        let htmlContent = `<h2>${cat}</h2>
+        <table border="1" cellpadding="5" cellspacing="0" style="border-collapse:collapse;">
+          <tr>`;
+        Object.keys(catData[0]).forEach(key => {
+          htmlContent += `<th>${key}</th>`;
+        });
+        htmlContent += '</tr>';
+        catData.forEach(item => {
+          htmlContent += '<tr>';
+          Object.values(item).forEach(val => {
+            htmlContent += `<td>${val}</td>`;
+          });
+          htmlContent += '</tr>';
+        });
+        htmlContent += `</table>`;
+        zip.file(`${cat}/${cat}.html`, htmlContent);
+      });
+
+      // 生成 zip
+      const content = await zip.generateAsync({ type: 'blob' });
+      triggerDownload(content, `分类导出_${Date.now()}.zip`, 'application/zip');
+    }
+
+    /* =======================
+       10. 下载触发器
+    ======================= */
+    function triggerDownload(content, filename, mimeType) {
+      const blob = (content instanceof Blob) 
+        ? content 
+        : new Blob([content], { type: `${mimeType};charset=utf-8` });
+
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  </script>
+</body>
+</html>
