@@ -2,35 +2,13 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>高级数据分类 & 分批转发工具</title>
-  
-  <!-- 引入Bootstrap CSS -->
+  <title>高级数据分类 & 查询工具</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- 引入Bootstrap Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
-  <!-- 引入Chart.js用于数据可视化 -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- 引入JSZip用于ZIP打包 -->
-  <script src="https://cdn.jsdelivr.net/npm/jszip/dist/jszip.min.js"></script>
-  
   <style>
-    /* 基础样式 */
     body {
       background-color: #f0f2f5;
-      transition: background-color 0.3s, color 0.3s;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
-    .dark-mode {
-      background-color: #121212;
-      color: #e0e0e0;
-    }
-    .dark-mode .section {
-      background-color: #1e1e1e;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    }
-    .main-container {
-      max-width: 1400px;
-      margin: 0 auto;
       padding: 20px;
     }
     .section {
@@ -39,7 +17,13 @@
       background-color: #ffffff;
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
       margin-bottom: 30px;
-      transition: background-color 0.3s, box-shadow 0.3s;
+    }
+    .btn-animate {
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn-animate:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 12px rgba(0,0,0,0.2);
     }
     .log-container {
       max-height: 300px;
@@ -50,1518 +34,216 @@
       border-radius: 8px;
       font-size: 14px;
       font-family: Consolas, monospace;
-      transition: background-color 0.3s, color 0.3s;
-    }
-    .collapsed-log {
-      display: none;
-    }
-    .ip-info {
-      font-weight: bold;
-      color: #0d6efd;
-    }
-    .toggle-theme-btn {
-      position: fixed;
-      bottom: 30px;
-      right: 30px;
-      z-index: 1000;
-      transition: transform 0.3s;
-    }
-    .toggle-theme-btn:hover {
-      transform: scale(1.1);
-    }
-    /* 动画效果 */
-    .fade-in {
-      animation: fadeIn 0.5s ease-in-out;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-    /* 表格样式 */
-    table th, table td {
-      vertical-align: middle;
-      text-align: center;
-      transition: background-color 0.3s, color 0.3s;
-    }
-    /* 按钮动画 */
-    .btn-animate {
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .btn-animate:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 6px 12px rgba(0,0,0,0.2);
     }
   </style>
 </head>
 <body>
-<div class="main-container">
+<div class="container">
+  <h1 class="text-center mb-5">高级数据分类 & 查询工具</h1>
 
-  <h1 class="text-center mb-5">高级数据分类 & 分批转发工具</h1>
-
-  <!-- ====== 基础设置区 ====== -->
-  <div class="section fade-in">
-    <h4>1. 基础设置</h4>
-    <div class="row g-4 align-items-center mt-3">
-      <!-- 是否启用IP查询 -->
-      <div class="col-md-3">
-        <div class="form-check form-switch">
-          <input class="form-check-input" type="checkbox" id="enableIpCheck" checked>
-          <label class="form-check-label" for="enableIpCheck">
-            启用IP归属地查询
-          </label>
-        </div>
-      </div>
-      <!-- 每批发送条数 -->
-      <div class="col-md-3">
-        <label for="batchSize" class="form-label">每批发送条数</label>
-        <input type="number" class="form-control" id="batchSize" value="10" min="1">
-      </div>
-      <!-- 每批发送间隔（毫秒） -->
-      <div class="col-md-3">
-        <label for="delayMs" class="form-label">每批发送间隔（毫秒）</label>
-        <input type="number" class="form-control" id="delayMs" value="2000" min="0">
-      </div>
-      <!-- 转发API地址 -->
-      <div class="col-md-3">
-        <label for="apiUrl" class="form-label">转发API地址</label>
-        <input type="text" class="form-control" id="apiUrl" value="https://xizhi.qqoq.net/XZ0e02fa49a53fdcbfee7699d1b4032649.send">
-      </div>
-    </div>
+  <!-- 数据输入区 -->
+  <div class="section">
+    <h4>1. 数据输入</h4>
+    <p class="text-muted">请粘贴包含access_token的原始数据，或上传文件。</p>
+    <textarea id="dataInput" class="form-control" rows="6" placeholder="在此粘贴您的数据，例如：#access_token=XXX&openid=YYY..."></textarea>
+    <input type="file" id="fileInput" accept=".txt" class="form-control mt-3">
+    <button class="btn btn-success mt-3 btn-animate" onclick="loadAndProcessData()">加载并查询数据</button>
   </div>
 
-  <!-- ====== 数据输入区 ====== -->
-  <div class="section fade-in">
-    <h4>2. 数据输入</h4>
-    <p class="text-muted">
-      将原始数据（包含 <code>账号大区</code>、<code>角色名称</code>、<code>游戏等级</code>、<code>仓库价值</code>、<code>access_token</code> 等字段）粘贴或上传到此处，进行分类并查看或导出。
-      <br>分类完成后，也可分批转发到指定API。
-    </p>
-    <div class="row g-4">
-      <div class="col-md-8">
-        <textarea id="dataInput" class="form-control" rows="6" placeholder="在此粘贴您的数据..."></textarea>
+  <!-- 筛选导出区 -->
+  <div class="section">
+    <h4>2. 筛选并导出</h4>
+    <div class="row g-4 mb-4">
+      <div class="col-md-3">
+        <label for="minLevel" class="form-label">等级最小值</label>
+        <input type="number" class="form-control" id="minLevel" placeholder="例如: 30">
       </div>
-      <div class="col-md-4">
-        <input type="file" id="fileInput" accept=".txt, .csv, .json" class="form-control mb-3">
-        <button class="btn btn-primary w-100 btn-animate" onclick="loadFile()">
-          <i class="bi bi-upload"></i> 上传并预览
-        </button>
+      <div class="col-md-3">
+        <label for="maxLevel" class="form-label">等级最大值</label>
+        <input type="number" class="form-control" id="maxLevel" placeholder="例如: 60">
+      </div>
+      <div class="col-md-3">
+        <label for="minWarehouse" class="form-label">仓库价值最小值 (M)</label>
+        <input type="number" class="form-control" id="minWarehouse" placeholder="例如: 3">
+      </div>
+      <div class="col-md-3">
+        <label for="maxWarehouse" class="form-label">仓库价值最大值 (M)</label>
+        <input type="number" class="form-control" id="maxWarehouse" placeholder="例如: 5">
       </div>
     </div>
-    <!-- 实时预览区域 -->
-    <div id="previewSection" class="mt-5" style="display:none;">
-      <h5>实时预览（仅展示前5条记录）</h5>
-      <canvas id="previewChart" height="200" class="mt-3"></canvas>
-      <table class="table table-bordered table-sm mt-3" id="previewTable"></table>
-    </div>
+    <button class="btn btn-primary btn-animate" onclick="exportFilteredData()">导出筛选结果 (TXT)</button>
   </div>
 
-  <!-- ====== 分类管理区 ====== -->
-  <div class="section fade-in">
-    <h4>3. 分类管理</h4>
-    <div class="mb-4">
-      <button class="btn btn-success me-3 btn-animate" onclick="processData()">
-        <i class="bi bi-check2-circle"></i> 解析并分类数据
-      </button>
-      <button class="btn btn-danger btn-animate" onclick="clearAll()">
-        <i class="bi bi-x-circle"></i> 清空/重置
-      </button>
-    </div>
-    <!-- 全部数据列表 -->
-    <div id="allDataSection" style="display:none;" class="mb-5">
-      <h5>全部数据列表（可勾选导出）</h5>
-      <div class="table-responsive">
-        <table class="table table-striped table-hover table-bordered table-sm" id="allDataTable"></table>
-      </div>
-      <div class="mt-3">
-        <button class="btn btn-outline-dark me-2 btn-animate" onclick="exportSelectedWithLabels()">
-          <i class="bi bi-clipboard-check"></i> 导出选中（带中文标注 TXT）
-        </button>
-        <button class="btn btn-outline-dark me-2 btn-animate" onclick="exportSelectedWithoutLabels()">
-          <i class="bi bi-clipboard-x"></i> 导出选中（不带中文标注 TXT）
-        </button>
-        <button class="btn btn-outline-dark me-2 btn-animate" onclick="exportSelectedHTML()">
-          <i class="bi bi-file-earmark-text"></i> 导出选中（HTML）
-        </button>
-        <button class="btn btn-outline-dark btn-animate" onclick="exportSelectedZip()">
-          <i class="bi bi-archive"></i> 打包导出选中（ZIP）
-        </button>
-        <!-- 添加“一键打包全部”按钮 -->
-        <button class="btn btn-outline-danger ms-2 btn-animate" onclick="exportAllZip()">
-          <i class="bi bi-archive"></i> 一键打包全部（ZIP）
-        </button>
-      </div>
-    </div>
-    <!-- 分类结果展示 -->
-    <hr>
-    <h5>分类结果</h5>
-    <div class="mb-4">
-      <label for="searchInput" class="form-label">搜索角色名称：</label>
-      <input type="text" id="searchInput" class="form-control" placeholder="输入关键字...">
-    </div>
-    <!-- 数据可视化图表 -->
-    <canvas id="categoryChart" height="400" class="mt-3"></canvas>
-    <div id="results" class="p-4 bg-light border rounded mt-4"></div>
-  </div>
-
-  <!-- ====== 分批转发区 ====== -->
-  <div class="section fade-in">
-    <h4>4. 分批转发</h4>
-    <button class="btn btn-primary mb-4 btn-animate" id="startSendBtn">
-      <i class="bi bi-send"></i> 一键分批发送全部记录
-    </button>
-    <!-- 进度与IP信息 -->
-    <div class="row g-4 align-items-center mb-4">
-      <div class="col-md-4 col-sm-12">
-        <label class="form-label">当前检测到的IP信息：</label>
-        <div>
-          <span id="ipInfo" class="ip-info">等待获取...</span>
-        </div>
-      </div>
-      <div class="col-md-4 col-sm-12">
-        <label class="form-label">发送进度</label>
-        <div class="progress" style="height: 28px;">
-          <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;">
-            0%
-          </div>
-        </div>
-      </div>
-      <div class="col-md-4 col-sm-12">
-        <label class="form-label">预估剩余时间</label>
-        <div id="estimatedTime" style="font-weight: bold;">
-          待计算
-        </div>
-      </div>
-    </div>
-    <!-- 发送日志 -->
-    <hr>
-    <h5>
-      发送日志
-      <button class="btn btn-sm btn-outline-info ms-2" id="toggleLogBtn">折叠日志</button>
-    </h5>
+  <!-- 日志区 -->
+  <div class="section">
+    <h4>3. 查询日志</h4>
     <div class="log-container" id="logContainer"></div>
   </div>
-
 </div>
 
-<!-- 主题切换按钮 -->
-<button class="btn btn-secondary toggle-theme-btn btn-animate" onclick="toggleTheme()">
-  <i class="bi bi-moon"></i> 切换主题
-</button>
-
-<!-- 引入Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-  /* ======================== 全局变量 ======================= */
-  let globalData = [];       // 所有解析到的记录（含等级=0）
-  let filteredData = [];     // 过滤掉等级=0的记录，用于分类
-  let categoriesData = [];   // 分类后的数据
-  let ipTitle = "";          // IP信息（用于标题）
-  let isSending = false;     // 标记是否正在发送
-  let linesToSend = [];      // 将要发送的全部行
-  let batchIndex = 0;        // 当前批次
-  let totalBatches = 1;      // 总批数
+  let globalData = [];
 
-  /* DOM引用 */
-  const dataInputEl = document.getElementById("dataInput");
-  const fileInputEl = document.getElementById("fileInput");
-  const previewSectionEl = document.getElementById("previewSection");
-  const previewTableEl = document.getElementById("previewTable");
-  const previewChartEl = document.getElementById("previewChart").getContext('2d');
-  const allDataSectionEl = document.getElementById("allDataSection");
-  const allDataTableEl = document.getElementById("allDataTable");
-  const resultsDiv = document.getElementById("results");
-  const searchInputEl = document.getElementById("searchInput");
-  const logContainerEl = document.getElementById("logContainer");
-  const toggleLogBtn = document.getElementById("toggleLogBtn");
-  const ipInfoEl = document.getElementById("ipInfo");
-  const progressBarEl = document.getElementById("progressBar");
-  const estimatedTimeEl = document.getElementById("estimatedTime");
-  const enableIpCheckEl = document.getElementById("enableIpCheck");
-  const apiUrlInputEl = document.getElementById("apiUrl");
-  const batchSizeInputEl = document.getElementById("batchSize");
-  const delayMsInputEl = document.getElementById("delayMs");
-  const startSendBtn = document.getElementById("startSendBtn");
-  const toggleThemeBtn = document.querySelector(".toggle-theme-btn");
-
-  /* ======================== 日志相关函数 ======================= */
-  function appendLog(message, isError=false) {
+  // 日志记录函数
+  function appendLog(message, isError = false) {
+    const logContainer = document.getElementById("logContainer");
     const p = document.createElement("p");
     p.textContent = message;
-    if(isError) {
-      p.style.color = "#ff6b6b"; // 错误信息用红色
-    }
-    logContainerEl.appendChild(p);
-    logContainerEl.scrollTop = logContainerEl.scrollHeight;
+    if (isError) p.style.color = "#ff6b6b";
+    logContainer.appendChild(p);
+    logContainer.scrollTop = logContainer.scrollHeight;
   }
 
-  function clearLog() {
-    logContainerEl.innerHTML = "";
+  // 提取access_token和openid
+  function extractAcOp(dataStr) {
+    const acMatch = dataStr.match(/access_token=([A-Za-z0-9]+)/);
+    const opMatch = dataStr.match(/openid=([A-Za-z0-9]+)/);
+    return [acMatch ? acMatch[1] : null, opMatch ? opMatch[1] : null];
   }
 
-  /* ======================== 折叠日志功能 ======================= */
-  toggleLogBtn.addEventListener("click", () => {
-    const isHidden = logContainerEl.classList.contains("collapsed-log");
-    if(isHidden) {
-      // 展开日志
-      logContainerEl.classList.remove("collapsed-log");
-      toggleLogBtn.textContent = "折叠日志";
-    } else {
-      // 折叠日志
-      logContainerEl.classList.add("collapsed-log");
-      toggleLogBtn.textContent = "展开日志";
+  // 计算仓库总价值（百万单位）
+  function calculateTotalValue(hafcoinnum, warehouseValue) {
+    try {
+      const total = (parseFloat(hafcoinnum) || 0) + (parseFloat(warehouseValue) || 0);
+      return Math.round(total / 1000000 * 10) / 10; // 转换为M并保留一位小数
+    } catch {
+      return 0;
     }
-  });
+  }
 
-  /* ======================== 文件读取功能 ======================= */
-  function loadFile() {
-    const file = fileInputEl.files[0];
-    if(!file) {
-      alert("请先选择一个支持的文件（TXT、CSV、JSON）");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      dataInputEl.value = e.target.result;
-      previewSectionEl.style.display = "block";
-      renderPreview(e.target.result, file.type);
+  // 异步查询API
+  async function fetchData(ac, op) {
+    const url = `https://comm.aci.game.qq.com/main?needGopenid=1&isPreengage=1&sAMSAcctype=qq&sAMSAccessToken=${ac}&sAMSAppOpenId=${op}&sAMSTargetAppId=1110543085&sAMSSourceAppId=1110543085&game=dfm&sCloudApiName=ams.gameattr.role&area=36&platid=1`;
+    const headers = {
+      "Referer": "https://gp.qq.com/",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36"
     };
-    if(file.type === "application/json") {
-      reader.readAsText(file, "UTF-8");
-    } else {
-      reader.readAsText(file, "UTF-8");
-    }
-  }
 
-  /* ======================== 实时预览功能 ======================= */
-  function renderPreview(rawText, fileType) {
-    let records = [];
-    if(fileType === "application/json") {
-      try {
-        records = JSON.parse(rawText);
-        if(!Array.isArray(records)) throw new Error("JSON数据必须是数组格式");
-      } catch (err) {
-        alert("JSON数据解析失败：" + err.message);
-        previewSectionEl.style.display = "none";
-        return;
-      }
-    } else {
-      records = rawText.split(/账号大区：/).filter(r => r.trim());
-    }
-
-    const previewList = [];
-    for(let i=0; i<records.length && i<5; i++) { // 仅展示前5条
-      const rec = records[i];
-      let item = {};
-      if(fileType === "application/json") {
-        item = rec;
+    try {
+      const response = await fetch(url, { headers });
+      if (response.ok) {
+        return await response.text();
       } else {
-        // 提取字段
-        const nameMatch = rec.match(/角色名称：([^|]+)/);
-        const levelMatch = rec.match(/游戏等级：([^|]+)/);
-        const warehouseMatch = rec.match(/仓库价值：([^|]+)/);
-        item = {
-          "角色名称": nameMatch ? nameMatch[1].trim() : "",
-          "游戏等级": levelMatch ? levelMatch[1].trim() : "",
-          "仓库价值": warehouseMatch ? warehouseMatch[1].trim().replace("M", "") : ""
-        };
+        appendLog(`请求失败，状态码：${response.status}`, true);
+        return null;
       }
-      previewList.push(item);
+    } catch (e) {
+      appendLog(`请求出错：${e.message}`, true);
+      return null;
+    }
+  }
+
+  // 处理单条数据
+  async function processAccount(data, index, total) {
+    appendLog(`正在处理第 ${index + 1}/${total} 条数据...`);
+    const [ac, op] = extractAcOp(data);
+    if (!ac || !op) {
+      appendLog(`无效数据格式，无法提取access_token或openid`, true);
+      return null;
     }
 
-    if(previewList.length === 0) {
-      previewSectionEl.style.display = "none";
-      alert("没有可预览的数据，或格式不正确");
+    const responseText = await fetchData(ac, op);
+    if (!responseText) return null;
+
+    const match = responseText.match(/query_role_result={.*?data:'(.*?)'/);
+    if (!match) {
+      appendLog(`无法解析响应数据`, true);
+      return null;
+    }
+
+    const dataStr = decodeURIComponent(match[1]);
+    const dataDict = Object.fromEntries(
+      dataStr.split('&').map(field => {
+        const [key, value] = field.split('=');
+        return [key, decodeURIComponent(value || '')];
+      })
+    );
+
+    const level = parseInt(dataDict.level || "0", 10);
+    const hafcoinnum = dataDict.hafcoinnum || "0";
+    const warehouseValue = dataDict.propcapital || "0";
+    const isBanned = dataDict.isbanuser === "1" ? "是" : "否";
+    const totalValueMillion = calculateTotalValue(hafcoinnum, warehouseValue);
+
+    if (isBanned === "是") {
+      appendLog(`账号已被封禁，跳过`, true);
+      return null;
+    }
+
+    return {
+      "原始数据": data.trim(),
+      "角色名称": dataDict.charac_name || "未知角色",
+      "游戏等级": level,
+      "仓库价值": totalValueMillion,
+      "access_token": data.trim()
+    };
+  }
+
+  // 加载并处理数据
+  async function loadAndProcessData() {
+    let rawText = document.getElementById("dataInput").value.trim();
+    const fileInput = document.getElementById("fileInput");
+
+    if (!rawText && fileInput.files.length > 0) {
+      const file = fileInput.files[0];
+      rawText = await file.text();
+    }
+
+    if (!rawText) {
+      alert("请输入或上传数据");
       return;
     }
 
-    renderPreviewTable(previewList);
-    renderPreviewChart(previewList);
-  }
+    const accountData = rawText.split('\n').filter(line => line.trim());
+    const uniqueData = [...new Set(accountData)];
+    appendLog(`识别到 ${accountData.length} 条数据，去重后 ${uniqueData.length} 条`);
 
-  function renderPreviewTable(data) {
-    previewTableEl.innerHTML = "";
-    const header = document.createElement("tr");
-    ["角色名称","游戏等级","仓库价值 (M)"].forEach(h => {
-      const th = document.createElement("th");
-      th.textContent = h;
-      header.appendChild(th);
-    });
-    previewTableEl.appendChild(header);
-    data.forEach(item => {
-      const tr = document.createElement("tr");
-      Object.values(item).forEach(val => {
-        const td = document.createElement("td");
-        td.textContent = val;
-        tr.appendChild(td);
-      });
-      previewTableEl.appendChild(tr);
-    });
-  }
-
-  function renderPreviewChart(data) {
-    const levels = data.map(item => parseInt(item["游戏等级"], 10) || 0);
-    const warehouses = data.map(item => parseFloat(item["仓库价值"]) || 0);
-    const chart = new Chart(previewChartEl, {
-      type: 'bar',
-      data: {
-        labels: data.map((item, idx) => `记录${idx+1}`),
-        datasets: [
-          {
-            label: '游戏等级',
-            data: levels,
-            backgroundColor: 'rgba(54, 162, 235, 0.6)'
-          },
-          {
-            label: '仓库价值 (M)',
-            data: warehouses,
-            backgroundColor: 'rgba(255, 99, 132, 0.6)'
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          tooltip: {
-            mode: 'index',
-            intersect: false
-          },
-          legend: {
-            position: 'top',
-          },
-          title: {
-            display: true,
-            text: '实时预览图表'
-          }
-        },
-        interaction: {
-          mode: 'nearest',
-          axis: 'x',
-          intersect: false
-        },
-        scales: {
-          y: {
-            beginAtZero: true
-          }
-        }
-      }
-    });
-  }
-
-  /* ======================== 数据解析与分类 ======================= */
-  function processData() {
-    const rawText = dataInputEl.value.trim();
-    if(!rawText) {
-      alert("请输入或上传数据后再进行解析");
-      return;
-    }
-
-    let records = [];
-    const fileType = fileInputEl.files[0] ? fileInputEl.files[0].type : "text/plain";
-    if(fileType === "application/json") {
-      try {
-        records = JSON.parse(rawText);
-        if(!Array.isArray(records)) throw new Error("JSON数据必须是数组格式");
-      } catch (err) {
-        alert("JSON数据解析失败：" + err.message);
-        return;
-      }
-    } else {
-      records = rawText.split(/账号大区：/).filter(r => r.trim());
-    }
-
-    // 定义字段
-    const fields = [
-      "账号大区", "角色名称", "角色编号", "游戏等级", "哈夫币",
-      "道具价值", "仓库价值", "在线", "今日登录", "特定模式等级",
-      "禁言", "封号", "最后登录时间", "最后登出时间", "access_token"
-    ];
-
-    // 解析记录
-    const parsed = records.map(rec => parseOneRecord(rec, fields, fileType));
-    globalData = parsed; // 包含等级=0
-
-    // 过滤等级=0
-    filteredData = parsed.filter(x => x["游戏等级"] !== 0);
-
-    // 渲染全部数据列表
-    renderAllDataTable(parsed);
-
-    // 分类
-    categoriesData = doClassification(filteredData);
-    renderCategories(categoriesData);
-    renderCategoryChart(categoriesData);
-
-    appendLog(`解析完成，共${parsed.length}条记录；过滤掉等级=0共有${parsed.length - filteredData.length}条。`);
-
-    // 显示全部数据部分
-    allDataSectionEl.style.display = "block";
-  }
-
-  function parseOneRecord(rec, fields, fileType) {
-    const obj = {};
-    if(fileType === "application/json") {
-      fields.forEach(field => {
-        obj[field] = rec[field] !== undefined ? rec[field] : "";
-      });
-    } else {
-      // 账号大区已在分割时被移除
-      fields.slice(1).forEach(field => {
-        let match = rec.match(new RegExp(`${field}：([^|]+)`));
-        if(match) {
-          if(field === "游戏等级" || field === "仓库价值") {
-            if(field === "游戏等级") {
-              let lv = parseInt(match[1].trim(), 10);
-              obj[field] = isNaN(lv) ? 0 : lv;
-            } else if(field === "仓库价值") {
-              let valStr = match[1].trim().replace("M", "");
-              let val = parseFloat(valStr) || 0;
-              obj[field] = val;
-            }
-          } else {
-            obj[field] = match[1].trim();
-          }
-        } else {
-          obj[field] = "";
-        }
-      });
-
-      // 特殊处理access_token
-      let tokenMatch = rec.match(/#access_token=([^}]+)/);
-      obj["access_token"] = tokenMatch ? `#access_token=${tokenMatch[1].trim()}` : "";
-    }
-    return obj;
-  }
-
-  function doClassification(data) {
-    data.forEach(item => {
-      let lvCat = "";
-      // 分类逻辑调整：30级以上包含30级，12级以上30级以下不包含30级
-      if(item["游戏等级"] >= 30) {
-        lvCat = "30级以上";
-      }
-      else if(item["游戏等级"] > 12 && item["游戏等级"] < 30) {
-        lvCat = "30级以下12级以上";
-      }
-      else {
-        lvCat = "12级以下";
-      }
-
-      // 仓库价值分类保持不变
-      let wv = "";
-      const v = item["仓库价值"];
-      if(v < 5) wv = "仓库价值0-5M";
-      else if(v < 10) wv = "仓库价值5-10M";
-      else if(v < 15) wv = "仓库价值10-15M";
-      else if(v < 20) wv = "仓库价值15-20M";
-      else if(v < 25) wv = "仓库价值20-25M";
-      else if(v < 30) wv = "仓库价值25-30M";
-      else wv = "仓库价值30M以上";
-
-      item["类别"] = lvCat + "_" + wv;
-    });
-    return data;
-  }
-
-  /* ======================== 渲染全部数据表 ======================= */
-  function renderAllDataTable(data) {
-    if(!data || data.length === 0){
-      allDataSectionEl.style.display = "none";
-      return;
-    }
-    allDataSectionEl.style.display = "block";
-    allDataTableEl.innerHTML = "";
-
-    // 表头
-    const header = document.createElement("tr");
-    const thCheck = document.createElement("th");
-    thCheck.innerHTML = `<input type="checkbox" id="selectAll">`;
-    thCheck.style.width = "60px";
-    header.appendChild(thCheck);
-    Object.keys(data[0]).forEach(k => {
-      const th = document.createElement("th");
-      th.textContent = k;
-      header.appendChild(th);
-    });
-    allDataTableEl.appendChild(header);
-
-    // 表格内容
-    data.forEach((item, idx) => {
-      const tr = document.createElement("tr");
-      const tdCheck = document.createElement("td");
-      const cb = document.createElement("input");
-      cb.type = "checkbox";
-      cb.value = idx;
-      tdCheck.appendChild(cb);
-      tr.appendChild(tdCheck);
-
-      Object.keys(item).forEach(key => {
-        const td = document.createElement("td");
-        td.textContent = item[key];
-        tr.appendChild(td);
-      });
-      allDataTableEl.appendChild(tr);
-    });
-
-    // 全选功能
-    const selectAllCb = document.getElementById("selectAll");
-    selectAllCb.addEventListener("change", (e) => {
-      const checkboxes = allDataTableEl.querySelectorAll('input[type="checkbox"]');
-      checkboxes.forEach(cb => cb.checked = e.target.checked);
-    });
-  }
-
-  /* ======================== 渲染分类结果 ======================= */
-  function renderCategories(data) {
-    resultsDiv.innerHTML = "";
-    if(!data || data.length === 0){
-      resultsDiv.innerHTML = "<p>没有可显示的数据</p>";
-      return;
-    }
-    const categories = [...new Set(data.map(x => x["类别"]))];
-
-    categories.forEach(cat => {
-      const catBlock = document.createElement("div");
-      catBlock.className = "p-4 mb-4 bg-white border rounded shadow-sm fade-in";
-
-      const h5 = document.createElement("h5");
-      h5.textContent = cat;
-      catBlock.appendChild(h5);
-
-      // 分类数据
-      const catData = data.filter(x => x["类别"] === cat);
-
-      // 按钮容器
-      const btnContainer = document.createElement("div");
-      btnContainer.className = "mb-3";
-
-      // 带中文标注 TXT
-      const btnWith = document.createElement("button");
-      btnWith.className = "btn btn-sm btn-outline-primary me-2 btn-animate";
-      btnWith.innerHTML = `<i class="bi bi-clipboard-check"></i> 带中文标注 TXT`;
-      btnWith.onclick = () => downloadWithLabels(catData, cat);
-      btnContainer.appendChild(btnWith);
-
-      // 不带中文标注 TXT
-      const btnWithout = document.createElement("button");
-      btnWithout.className = "btn btn-sm btn-outline-secondary me-2 btn-animate";
-      btnWithout.innerHTML = `<i class="bi bi-clipboard-x"></i> 不带中文标注 TXT`;
-      btnWithout.onclick = () => downloadWithoutLabels(catData, cat);
-      btnContainer.appendChild(btnWithout);
-
-      // 导出 HTML
-      const btnHTML = document.createElement("button");
-      btnHTML.className = "btn btn-sm btn-outline-success me-2 btn-animate";
-      btnHTML.innerHTML = `<i class="bi bi-file-earmark-text"></i> 导出 HTML`;
-      btnHTML.onclick = () => downloadHTML(catData, cat);
-      btnContainer.appendChild(btnHTML);
-
-      // 导出 CSV
-      const btnCSV = document.createElement("button");
-      btnCSV.className = "btn btn-sm btn-outline-warning me-2 btn-animate";
-      btnCSV.innerHTML = `<i class="bi bi-file-earmark-spreadsheet"></i> 导出 CSV`;
-      btnCSV.onclick = () => downloadCSV(catData, cat);
-      btnContainer.appendChild(btnCSV);
-
-      catBlock.appendChild(btnContainer);
-      resultsDiv.appendChild(catBlock);
-    });
-  }
-
-  /* ======================== 渲染分类图表 ======================= */
-  function renderCategoryChart(data) {
-    const ctx = document.getElementById('categoryChart').getContext('2d');
-    const categories = [...new Set(data.map(x => x["类别"]))];
-    const counts = categories.map(cat => data.filter(x => x["类别"] === cat).length);
-
-    new Chart(ctx, {
-      type: 'pie',
-      data: {
-        labels: categories,
-        datasets: [{
-          label: '分类分布',
-          data: counts,
-          backgroundColor: generateColors(categories.length),
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: {
-            position: 'right',
-          },
-          title: {
-            display: true,
-            text: '分类数据分布图'
-          }
-        }
-      },
-    });
-  }
-
-  function generateColors(num) {
-    const colors = [];
-    for(let i=0; i<num; i++) {
-      const r = Math.floor(Math.random()*255);
-      const g = Math.floor(Math.random()*255);
-      const b = Math.floor(Math.random()*255);
-      colors.push(`rgba(${r}, ${g}, ${b}, 0.7)`);
-    }
-    return colors;
-  }
-
-  /* ======================== 导出功能 ======================= */
-  function downloadWithLabels(data, category) {
-    if(!data || data.length === 0) return;
-    let txt = "";
-    const headers = Object.keys(data[0]).join(" | ");
-    txt += headers + "\n";
-    data.forEach(item => {
-      txt += Object.values(item).join(" | ") + "\n";
-    });
-    triggerDownload(txt, `${category}_中文标注.txt`, "text/plain");
-  }
-
-  function downloadWithoutLabels(data, category) {
-    if(!data || data.length === 0) return;
-    let txt = "";
-    data.forEach(item => {
-      if(item["access_token"]) {
-        txt += item["access_token"] + "\n";
-      }
-    });
-    triggerDownload(txt, `${category}_无中文标注.txt`, "text/plain");
-  }
-
-  function downloadHTML(data, category) {
-    if(!data || data.length === 0) return;
-    let html = `<h2>${cat}</h2>
-    <table border="1" cellpadding="5" cellspacing="0" style="border-collapse:collapse; width:100%;">
-      <tr>`;
-    Object.keys(data[0]).forEach(k => {
-      html += `<th>${k}</th>`;
-    });
-    html += `</tr>`;
-    data.forEach(item => {
-      html += `<tr>`;
-      Object.keys(item).forEach(k => {
-        html += `<td>${item[k]}</td>`;
-      });
-      html += `</tr>`;
-    });
-    html += `</table>`;
-    triggerDownload(html, `${category}.html`, "text/html");
-  }
-
-  function downloadCSV(data, category) {
-    if(!data || data.length === 0) return;
-    let csv = "";
-    const headers = Object.keys(data[0]).join(",");
-    csv += headers + "\n";
-    data.forEach(item => {
-      const row = Object.keys(item).map(k => `"${item[k]}"`).join(",");
-      csv += row + "\n";
-    });
-    triggerDownload(csv, `${category}.csv`, "text/csv");
-  }
-
-  /* ======================== 导出全部记录为ZIP ======================= */
-  async function exportAllZip() {
-    if(globalData.length === 0) {
-      alert("无可导出的数据，请先解析导入。");
-      return;
-    }
-
-    const zip = new JSZip();
-    const categories = [...new Set(globalData.map(x => x["类别"]))];
-
-    categories.forEach(cat => {
-      const catData = globalData.filter(x => x["类别"] === cat);
-      if(catData.length === 0) return;
-
-      // 创建文件夹
-      const folder = zip.folder(cat);
-
-      // 带中文标注 TXT
-      let txtWith = "";
-      const headers = Object.keys(catData[0]).join(" | ");
-      txtWith += headers + "\n";
-      catData.forEach(item => {
-        txtWith += Object.values(item).join(" | ") + "\n";
-      });
-      folder.file(`${cat}_带中文标注.txt`, txtWith);
-
-      // 不带中文标注 TXT
-      let txtWithout = "";
-      catData.forEach(item => {
-        if(item["access_token"]) {
-          txtWithout += item["access_token"] + "\n";
-        }
-      });
-      folder.file(`${cat}_不带中文标注.txt`, txtWithout);
-
-      // 导出HTML
-      let html = `<h2>${cat}</h2>
-      <table border="1" cellpadding="5" cellspacing="0" style="border-collapse:collapse; width:100%;">
-        <tr>`;
-      Object.keys(catData[0]).forEach(k => {
-        html += `<th>${k}</th>`;
-      });
-      html += `</tr>`;
-      catData.forEach(item => {
-        html += `<tr>`;
-        Object.keys(item).forEach(k => {
-          html += `<td>${item[k]}</td>`;
-        });
-        html += `</tr>`;
-      });
-      html += `</table>`;
-      folder.file(`${cat}.html`, html);
-
-      // 导出CSV
-      let csv = "";
-      const headersCSV = Object.keys(catData[0]).join(",");
-      csv += headersCSV + "\n";
-      catData.forEach(item => {
-        const row = Object.keys(item).map(k => `"${item[k]}"`).join(",");
-        csv += row + "\n";
-      });
-      folder.file(`${cat}.csv`, csv);
-    });
-
-    const content = await zip.generateAsync({type:"blob"});
-    triggerDownload(content, `全部分类导出_${Date.now()}.zip`, "application/zip");
-  }
-
-  /* ======================== 触发下载功能 ======================= */
-  function triggerDownload(content, filename, mimeType) {
-    const blob = (content instanceof Blob) ? content : new Blob([content], {type: `${mimeType};charset=utf-8`});
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }
-
-  /* ======================== 搜索功能 ======================= */
-  searchInputEl.addEventListener("input", () => {
-    const keyword = searchInputEl.value.trim();
-    if(keyword === "") {
-      // 显示全部分类
-      renderCategories(categoriesData);
-      renderCategoryChart(categoriesData);
-      return;
-    }
-    // 过滤角色名称包含关键词的记录
-    const filtered = filteredData.filter(item => item["角色名称"].includes(keyword));
-    const newCategories = doClassification(filtered);
-    renderCategories(newCategories);
-    renderCategoryChart(newCategories);
-  });
-
-  /* ======================== 分批发送功能 ======================= */
-  startSendBtn.addEventListener("click", () => {
-    if(isSending) {
-      appendLog("当前已有发送任务在进行中...", true);
-      return;
-    }
-    if(globalData.length === 0){
-      appendLog("无可发送的数据，请先解析导入。", true);
-      return;
-    }
-    clearLog();
-    appendLog("开始分批发送所有记录...");
-
-    // 构造发送数据
-    linesToSend = globalData.map(item => {
-      // 将所有字段合并为一行，您可以根据需求调整格式
-      return Object.keys(item).map(k => `${k}：${item[k]}`).join(" | ");
-    });
-
-    // 获取设置参数
-    const batchSizeVal = parseInt(batchSizeInputEl.value, 10) || 10;
-    const delayMsVal = parseInt(delayMsInputEl.value, 10) || 2000;
-    const apiUrl = apiUrlInputEl.value.trim() || "https://xizhi.qqoq.net/XZ0e02fa49a53fdcbfee7699d1b4032649.send";
-
-    // 计算总批数及预估时间
-    totalBatches = Math.ceil(linesToSend.length / batchSizeVal);
-    const totalMs = totalBatches * delayMsVal;
-    const estSec = Math.ceil(totalMs / 1000);
-    estimatedTimeEl.textContent = `约 ${estSec} 秒`;
-
-    isSending = true;
-    batchIndex = 0;
-
-    sendNextBatch(linesToSend, batchSizeVal, delayMsVal, apiUrl);
-  });
-
-  function sendNextBatch(array, batchSize, delayMs, apiUrl) {
-    if(array.length === 0) {
-      appendLog("所有数据发送完毕。");
-      isSending = false;
-      updateProgress();
-      return;
-    }
-    batchIndex++;
-    updateProgress();
-
-    const batch = array.splice(0, batchSize);
-    const dataToSend = batch.join("\n");
-    const bodyParams = new URLSearchParams();
-    const title = ipTitle ? `${ipTitle}(第${batchIndex}批)` : `未获取IP(第${batchIndex}批)`;
-    bodyParams.set("title", title);
-    bodyParams.set("content", dataToSend);
-
-    appendLog(`第${batchIndex}批发送中 (${batch.length}条)...`);
-
-    fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded;charset=utf-8"
-      },
-      body: bodyParams.toString()
-    })
-    .then(response => {
-      if(!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      return response.text();
-    })
-    .then(respText => {
-      appendLog(`第${batchIndex}批发送成功: 响应: ${respText}`);
-      setTimeout(() => {
-        sendNextBatch(array, batchSize, delayMs, apiUrl);
-      }, delayMs);
-    })
-    .catch(err => {
-      appendLog(`第${batchIndex}批发送失败: ${err.message}`, true);
-      isSending = false;
-    });
-  }
-
-  /* ======================== 更新进度条 ======================= */
-  function updateProgress() {
-    const percent = (batchIndex / totalBatches) * 100;
-    progressBarEl.style.width = percent.toFixed(1) + "%";
-    progressBarEl.textContent = percent.toFixed(0) + "%";
-  }
-
-  /* ======================== 导出选中记录功能 ======================= */
-  function getCheckedIndices() {
-    const cbs = allDataTableEl.querySelectorAll('input[type="checkbox"]:checked');
-    return Array.from(cbs).map(cb => parseInt(cb.value, 10));
-  }
-
-  function exportSelectedWithLabels() {
-    const idxs = getCheckedIndices();
-    if(idxs.length === 0) {
-      alert("请先勾选至少一条记录");
-      return;
-    }
-    let txt = "";
-    const headers = Object.keys(globalData[0]).join(" | ");
-    txt += headers + "\n";
-    idxs.forEach(i => {
-      const item = globalData[i];
-      txt += Object.values(item).join(" | ") + "\n";
-    });
-    triggerDownload(txt, `勾选导出_带中文标注.txt`, "text/plain");
-  }
-
-  function exportSelectedWithoutLabels() {
-    const idxs = getCheckedIndices();
-    if(idxs.length === 0) {
-      alert("请先勾选至少一条记录");
-      return;
-    }
-    let txt = "";
-    idxs.forEach(i => {
-      const item = globalData[i];
-      if(item["access_token"]) {
-        txt += item["access_token"] + "\n";
-      }
-    });
-    triggerDownload(txt, `勾选导出_无中文标注.txt`, "text/plain");
-  }
-
-  function exportSelectedHTML() {
-    const idxs = getCheckedIndices();
-    if(idxs.length === 0) {
-      alert("请先勾选至少一条记录");
-      return;
-    }
-    let html = `<h2>勾选导出</h2>
-    <table border="1" cellpadding="5" cellspacing="0" style="border-collapse:collapse; width:100%;">
-      <tr>`;
-    Object.keys(globalData[0]).forEach(k => {
-      html += `<th>${k}</th>`;
-    });
-    html += `</tr>`;
-    idxs.forEach(i => {
-      const item = globalData[i];
-      html += `<tr>`;
-      Object.keys(item).forEach(k => {
-        html += `<td>${item[k]}</td>`;
-      });
-      html += `</tr>`;
-    });
-    html += `</table>`;
-    triggerDownload(html, `勾选导出.html`, "text/html");
-  }
-
-  /* ======================== 导出全部记录为ZIP ======================= */
-  async function exportAllZip() {
-    if(globalData.length === 0) {
-      alert("无可导出的数据，请先解析导入。");
-      return;
-    }
-
-    const zip = new JSZip();
-    const categories = [...new Set(globalData.map(x => x["类别"]))];
-
-    categories.forEach(cat => {
-      const catData = globalData.filter(x => x["类别"] === cat);
-      if(catData.length === 0) return;
-
-      // 创建文件夹
-      const folder = zip.folder(cat);
-
-      // 带中文标注 TXT
-      let txtWith = "";
-      const headers = Object.keys(catData[0]).join(" | ");
-      txtWith += headers + "\n";
-      catData.forEach(item => {
-        txtWith += Object.values(item).join(" | ") + "\n";
-      });
-      folder.file(`${cat}_带中文标注.txt`, txtWith);
-
-      // 不带中文标注 TXT
-      let txtWithout = "";
-      catData.forEach(item => {
-        if(item["access_token"]) {
-          txtWithout += item["access_token"] + "\n";
-        }
-      });
-      folder.file(`${cat}_不带中文标注.txt`, txtWithout);
-
-      // 导出HTML
-      let html = `<h2>${cat}</h2>
-      <table border="1" cellpadding="5" cellspacing="0" style="border-collapse:collapse; width:100%;">
-        <tr>`;
-      Object.keys(catData[0]).forEach(k => {
-        html += `<th>${k}</th>`;
-      });
-      html += `</tr>`;
-      catData.forEach(item => {
-        html += `<tr>`;
-        Object.keys(item).forEach(k => {
-          html += `<td>${item[k]}</td>`;
-        });
-        html += `</tr>`;
-      });
-      html += `</table>`;
-      folder.file(`${cat}.html`, html);
-
-      // 导出CSV
-      let csv = "";
-      const headersCSV = Object.keys(catData[0]).join(",");
-      csv += headersCSV + "\n";
-      catData.forEach(item => {
-        const row = Object.keys(item).map(k => `"${item[k]}"`).join(",");
-        csv += row + "\n";
-      });
-      folder.file(`${cat}.csv`, csv);
-    });
-    const content = await zip.generateAsync({type:"blob"});
-    triggerDownload(content, `全部分类导出_${Date.now()}.zip`, "application/zip");
-  }
-
-  /* ======================== 触发下载功能 ======================= */
-  function triggerDownload(content, filename, mimeType) {
-    const blob = (content instanceof Blob) ? content : new Blob([content], {type: `${mimeType};charset=utf-8`});
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }
-
-  /* ======================== 搜索功能 ======================= */
-  searchInputEl.addEventListener("input", () => {
-    const keyword = searchInputEl.value.trim();
-    if(keyword === "") {
-      // 显示全部分类
-      renderCategories(categoriesData);
-      renderCategoryChart(categoriesData);
-      return;
-    }
-    // 过滤角色名称包含关键词的记录
-    const filtered = filteredData.filter(item => item["角色名称"].includes(keyword));
-    const newCategories = doClassification(filtered);
-    renderCategories(newCategories);
-    renderCategoryChart(newCategories);
-  });
-
-  /* ======================== 分批发送功能 ======================= */
-  startSendBtn.addEventListener("click", () => {
-    if(isSending) {
-      appendLog("当前已有发送任务在进行中...", true);
-      return;
-    }
-    if(globalData.length === 0){
-      appendLog("无可发送的数据，请先解析导入。", true);
-      return;
-    }
-    clearLog();
-    appendLog("开始分批发送所有记录...");
-
-    // 构造发送数据
-    linesToSend = globalData.map(item => {
-      // 将所有字段合并为一行，您可以根据需求调整格式
-      return Object.keys(item).map(k => `${k}：${item[k]}`).join(" | ");
-    });
-
-    // 获取设置参数
-    const batchSizeVal = parseInt(batchSizeInputEl.value, 10) || 10;
-    const delayMsVal = parseInt(delayMsInputEl.value, 10) || 2000;
-    const apiUrl = apiUrlInputEl.value.trim() || "https://xizhi.qqoq.net/XZ0e02fa49a53fdcbfee7699d1b4032649.send";
-
-    // 计算总批数及预估时间
-    totalBatches = Math.ceil(linesToSend.length / batchSizeVal);
-    const totalMs = totalBatches * delayMsVal;
-    const estSec = Math.ceil(totalMs / 1000);
-    estimatedTimeEl.textContent = `约 ${estSec} 秒`;
-
-    isSending = true;
-    batchIndex = 0;
-
-    sendNextBatch(linesToSend, batchSizeVal, delayMsVal, apiUrl);
-  });
-
-  function sendNextBatch(array, batchSize, delayMs, apiUrl) {
-    if(array.length === 0) {
-      appendLog("所有数据发送完毕。");
-      isSending = false;
-      updateProgress();
-      return;
-    }
-    batchIndex++;
-    updateProgress();
-
-    const batch = array.splice(0, batchSize);
-    const dataToSend = batch.join("\n");
-    const bodyParams = new URLSearchParams();
-    const title = ipTitle ? `${ipTitle}(第${batchIndex}批)` : `未获取IP(第${batchIndex}批)`;
-    bodyParams.set("title", title);
-    bodyParams.set("content", dataToSend);
-
-    appendLog(`第${batchIndex}批发送中 (${batch.length}条)...`);
-
-    fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded;charset=utf-8"
-      },
-      body: bodyParams.toString()
-    })
-    .then(response => {
-      if(!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      return response.text();
-    })
-    .then(respText => {
-      appendLog(`第${batchIndex}批发送成功: 响应: ${respText}`);
-      setTimeout(() => {
-        sendNextBatch(array, batchSize, delayMs, apiUrl);
-      }, delayMs);
-    })
-    .catch(err => {
-      appendLog(`第${batchIndex}批发送失败: ${err.message}`, true);
-      isSending = false;
-    });
-  }
-
-  /* ======================== 更新进度条 ======================= */
-  function updateProgress() {
-    const percent = (batchIndex / totalBatches) * 100;
-    progressBarEl.style.width = percent.toFixed(1) + "%";
-    progressBarEl.textContent = percent.toFixed(0) + "%";
-  }
-
-  /* ======================== 导出选中记录功能 ======================= */
-  function getCheckedIndices() {
-    const cbs = allDataTableEl.querySelectorAll('input[type="checkbox"]:checked');
-    return Array.from(cbs).map(cb => parseInt(cb.value, 10));
-  }
-
-  function exportSelectedWithLabels() {
-    const idxs = getCheckedIndices();
-    if(idxs.length === 0) {
-      alert("请先勾选至少一条记录");
-      return;
-    }
-    let txt = "";
-    const headers = Object.keys(globalData[0]).join(" | ");
-    txt += headers + "\n";
-    idxs.forEach(i => {
-      const item = globalData[i];
-      txt += Object.values(item).join(" | ") + "\n";
-    });
-    triggerDownload(txt, `勾选导出_带中文标注.txt`, "text/plain");
-  }
-
-  function exportSelectedWithoutLabels() {
-    const idxs = getCheckedIndices();
-    if(idxs.length === 0) {
-      alert("请先勾选至少一条记录");
-      return;
-    }
-    let txt = "";
-    idxs.forEach(i => {
-      const item = globalData[i];
-      if(item["access_token"]) {
-        txt += item["access_token"] + "\n";
-      }
-    });
-    triggerDownload(txt, `勾选导出_无中文标注.txt`, "text/plain");
-  }
-
-  function exportSelectedHTML() {
-    const idxs = getCheckedIndices();
-    if(idxs.length === 0) {
-      alert("请先勾选至少一条记录");
-      return;
-    }
-    let html = `<h2>勾选导出</h2>
-    <table border="1" cellpadding="5" cellspacing="0" style="border-collapse:collapse; width:100%;">
-      <tr>`;
-    Object.keys(globalData[0]).forEach(k => {
-      html += `<th>${k}</th>`;
-    });
-    html += `</tr>`;
-    idxs.forEach(i => {
-      const item = globalData[i];
-      html += `<tr>`;
-      Object.keys(item).forEach(k => {
-        html += `<td>${item[k]}</td>`;
-      });
-      html += `</tr>`;
-    });
-    html += `</table>`;
-    triggerDownload(html, `勾选导出.html`, "text/html");
-  }
-
-  /* ======================== 导出全部记录为ZIP ======================= */
-  async function exportAllZip() {
-    if(globalData.length === 0) {
-      alert("无可导出的数据，请先解析导入。");
-      return;
-    }
-
-    const zip = new JSZip();
-    const categories = [...new Set(globalData.map(x => x["类别"]))];
-
-    categories.forEach(cat => {
-      const catData = globalData.filter(x => x["类别"] === cat);
-      if(catData.length === 0) return;
-
-      // 创建文件夹
-      const folder = zip.folder(cat);
-
-      // 带中文标注 TXT
-      let txtWith = "";
-      const headers = Object.keys(catData[0]).join(" | ");
-      txtWith += headers + "\n";
-      catData.forEach(item => {
-        txtWith += Object.values(item).join(" | ") + "\n";
-      });
-      folder.file(`${cat}_带中文标注.txt`, txtWith);
-
-      // 不带中文标注 TXT
-      let txtWithout = "";
-      catData.forEach(item => {
-        if(item["access_token"]) {
-          txtWithout += item["access_token"] + "\n";
-        }
-      });
-      folder.file(`${cat}_不带中文标注.txt`, txtWithout);
-
-      // 导出HTML
-      let html = `<h2>${cat}</h2>
-      <table border="1" cellpadding="5" cellspacing="0" style="border-collapse:collapse; width:100%;">
-        <tr>`;
-      Object.keys(catData[0]).forEach(k => {
-        html += `<th>${k}</th>`;
-      });
-      html += `</tr>`;
-      catData.forEach(item => {
-        html += `<tr>`;
-        Object.keys(item).forEach(k => {
-          html += `<td>${item[k]}</td>`;
-        });
-        html += `</tr>`;
-      });
-      html += `</table>`;
-      folder.file(`${cat}.html`, html);
-
-      // 导出CSV
-      let csv = "";
-      const headersCSV = Object.keys(catData[0]).join(",");
-      csv += headersCSV + "\n";
-      catData.forEach(item => {
-        const row = Object.keys(item).map(k => `"${item[k]}"`).join(",");
-        csv += row + "\n";
-      });
-      folder.file(`${cat}.csv`, csv);
-    });
-    const content = await zip.generateAsync({type:"blob"});
-    triggerDownload(content, `全部分类导出_${Date.now()}.zip`, "application/zip");
-  }
-
-  /* ======================== 触发下载功能 ======================= */
-  function triggerDownload(content, filename, mimeType) {
-    const blob = (content instanceof Blob) ? content : new Blob([content], {type: `${mimeType};charset=utf-8`});
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }
-
-  /* ======================== 搜索功能 ======================= */
-  searchInputEl.addEventListener("input", () => {
-    const keyword = searchInputEl.value.trim();
-    if(keyword === "") {
-      // 显示全部分类
-      renderCategories(categoriesData);
-      renderCategoryChart(categoriesData);
-      return;
-    }
-    // 过滤角色名称包含关键词的记录
-    const filtered = filteredData.filter(item => item["角色名称"].includes(keyword));
-    const newCategories = doClassification(filtered);
-    renderCategories(newCategories);
-    renderCategoryChart(newCategories);
-  });
-
-  /* ======================== 数据可视化图表 ======================= */
-  function renderCategoryChart(data) {
-    const ctx = document.getElementById('categoryChart').getContext('2d');
-    const categories = [...new Set(data.map(x => x["类别"]))];
-    const counts = categories.map(cat => data.filter(x => x["类别"] === cat).length);
-
-    new Chart(ctx, {
-      type: 'pie',
-      data: {
-        labels: categories,
-        datasets: [{
-          label: '分类分布',
-          data: counts,
-          backgroundColor: generateColors(categories.length),
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: {
-            position: 'right',
-          },
-          title: {
-            display: true,
-            text: '分类数据分布图'
-          }
-        }
-      },
-    });
-  }
-
-  function generateColors(num) {
-    const colors = [];
-    for(let i=0; i<num; i++) {
-      const r = Math.floor(Math.random()*255);
-      const g = Math.floor(Math.random()*255);
-      const b = Math.floor(Math.random()*255);
-      colors.push(`rgba(${r}, ${g}, ${b}, 0.7)`);
-    }
-    return colors;
-  }
-
-  /* ======================== 分批发送逻辑 ======================= */
-  function sendNextBatch(array, batchSize, delayMs, apiUrl) {
-    if(array.length === 0) {
-      appendLog("所有数据发送完毕。");
-      isSending = false;
-      updateProgress();
-      return;
-    }
-    batchIndex++;
-    updateProgress();
-
-    const batch = array.splice(0, batchSize);
-    const dataToSend = batch.join("\n");
-    const bodyParams = new URLSearchParams();
-    const title = ipTitle ? `${ipTitle}(第${batchIndex}批)` : `未获取IP(第${batchIndex}批)`;
-    bodyParams.set("title", title);
-    bodyParams.set("content", dataToSend);
-
-    appendLog(`第${batchIndex}批发送中 (${batch.length}条)...`);
-
-    fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded;charset=utf-8"
-      },
-      body: bodyParams.toString()
-    })
-    .then(response => {
-      if(!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      return response.text();
-    })
-    .then(respText => {
-      appendLog(`第${batchIndex}批发送成功: 响应: ${respText}`);
-      setTimeout(() => {
-        sendNextBatch(array, batchSize, delayMs, apiUrl);
-      }, delayMs);
-    })
-    .catch(err => {
-      appendLog(`第${batchIndex}批发送失败: ${err.message}`, true);
-      isSending = false;
-    });
-  }
-
-  /* ======================== 更新进度条 ======================= */
-  function updateProgress() {
-    const percent = (batchIndex / totalBatches) * 100;
-    progressBarEl.style.width = percent.toFixed(1) + "%";
-    progressBarEl.textContent = percent.toFixed(0) + "%";
-  }
-
-  /* ======================== 导出选中记录功能 ======================= */
-  async function bulkExportZip(data, categories) {
-    if(!data || data.length === 0) return;
-    const zip = new JSZip();
-    categories.forEach(cat => {
-      const catData = data.filter(x => x["类别"] === cat);
-      if(catData.length === 0) return;
-
-      // 带中文标注 TXT
-      let txtWith = "";
-      const headers = Object.keys(catData[0]).join(" | ");
-      txtWith += headers + "\n";
-      catData.forEach(item => {
-        txtWith += Object.values(item).join(" | ") + "\n";
-      });
-      zip.file(`${cat}/${cat}_带中文标注.txt`, txtWith);
-
-      // 不带中文标注 TXT
-      let txtWithout = "";
-      catData.forEach(item => {
-        if(item["access_token"]) {
-          txtWithout += item["access_token"] + "\n";
-        }
-      });
-      zip.file(`${cat}/${cat}_不带中文标注.txt`, txtWithout);
-
-      // 导出HTML
-      let html = `<h2>${cat}</h2>
-      <table border="1" cellpadding="5" cellspacing="0" style="border-collapse:collapse; width:100%;">
-        <tr>`;
-      Object.keys(catData[0]).forEach(k => {
-        html += `<th>${k}</th>`;
-      });
-      html += `</tr>`;
-      catData.forEach(item => {
-        html += `<tr>`;
-        Object.keys(item).forEach(k => {
-          html += `<td>${item[k]}</td>`;
-        });
-        html += `</tr>`;
-      });
-      html += `</table>`;
-      zip.file(`${cat}/${cat}.html`, html);
-
-      // 导出CSV
-      let csv = "";
-      const headersCSV = Object.keys(catData[0]).join(",");
-      csv += headersCSV + "\n";
-      catData.forEach(item => {
-        const row = Object.keys(item).map(k => `"${item[k]}"`).join(",");
-        csv += row + "\n";
-      });
-      zip.file(`${cat}/${cat}.csv`, csv);
-    });
-    const content = await zip.generateAsync({type:"blob"});
-    triggerDownload(content, `分类导出_${Date.now()}.zip`, "application/zip");
-  }
-
-  /* ======================== 清空/重置功能 ======================= */
-  function clearAll() {
-    dataInputEl.value = "";
-    previewSectionEl.style.display = "none";
-    allDataSectionEl.style.display = "none";
-    resultsDiv.innerHTML = "";
-    searchInputEl.value = "";
     globalData = [];
-    filteredData = [];
-    categoriesData = [];
-    clearLog();
-    progressBarEl.style.width = "0%";
-    progressBarEl.textContent = "0%";
-    estimatedTimeEl.textContent = "待计算";
-    isSending = false;
-    appendLog("已清空所有数据和日志。");
+    for (let i = 0; i < uniqueData.length; i++) {
+      const result = await processAccount(uniqueData[i], i, uniqueData.length);
+      if (result) globalData.push(result);
+      await new Promise(resolve => setTimeout(resolve, 100)); // 模拟Python脚本中的100ms延迟
+    }
+
+    appendLog(`查询完成，共 ${globalData.length} 条有效数据`);
   }
 
-  /* ======================== IP查询功能 ======================= */
-  function fetchIp() {
-    if(!enableIpCheckEl.checked){
-      ipTitle = "未启用IP";
-      ipInfoEl.textContent = "IP查询已关闭";
-      return;
-    }
-    fetch("https://ip-api.com/json/")
-    .then(response => response.json())
-    .then(data => {
-      if(data.status === "success") {
-        ipTitle = `${data.query}(${data.regionName})`;
-        ipInfoEl.textContent = `${data.query} - ${data.country} / ${data.regionName} / ${data.city}`;
-      } else {
-        ipTitle = "IP查询失败";
-        ipInfoEl.textContent = "无法获取IP（接口返回失败）";
-      }
-    })
-    .catch(err => {
-      ipTitle = "IP查询错误";
-      ipInfoEl.textContent = `无法获取IP（${err.message}）`;
+  // 筛选数据
+  function filterData() {
+    const minLevel = parseInt(document.getElementById("minLevel").value) || 0;
+    const maxLevel = parseInt(document.getElementById("maxLevel").value) || Infinity;
+    const minWarehouse = parseFloat(document.getElementById("minWarehouse").value) || 0;
+    const maxWarehouse = parseFloat(document.getElementById("maxWarehouse").value) || Infinity;
+
+    return globalData.filter(item => {
+      const level = item["游戏等级"];
+      const warehouse = item["仓库价值"];
+      return level >= minLevel && level <= maxLevel && warehouse >= minWarehouse && warehouse <= maxWarehouse;
     });
   }
 
-  /* ======================== 页面加载时获取IP ======================= */
-  window.addEventListener("DOMContentLoaded", () => {
-    fetchIp();
-  });
-
-  /* ======================== 主题切换功能 ======================= */
-  function toggleTheme() {
-    document.body.classList.toggle("dark-mode");
-    const icon = toggleThemeBtn.querySelector("i");
-    if(document.body.classList.contains("dark-mode")) {
-      icon.classList.remove("bi-moon");
-      icon.classList.add("bi-sun");
-      toggleThemeBtn.innerHTML = `<i class="bi bi-sun"></i> 浅色模式`;
-    } else {
-      icon.classList.remove("bi-sun");
-      icon.classList.add("bi-moon");
-      toggleThemeBtn.innerHTML = `<i class="bi bi-moon"></i> 深色模式`;
+  // 导出筛选结果
+  function exportFilteredData() {
+    const filtered = filterData();
+    if (filtered.length === 0) {
+      alert("没有符合条件的记录");
+      return;
     }
+    const txt = filtered.map(item => item["access_token"]).join("\n");
+    triggerDownload(txt, `筛选导出.txt`, "text/plain");
   }
 
+  // 下载文件
+  function triggerDownload(content, filename, mimeType) {
+    const blob = new Blob([content], { type: `${mimeType};charset=utf-8` });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 </script>
-
 </body>
 </html>
